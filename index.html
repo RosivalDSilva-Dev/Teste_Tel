@@ -66,6 +66,8 @@
     .num-card.s-NAO_CONCLUIDA strong { color: var(--warn); }
     .num-card.s-ERRO strong { color: var(--err); }
     .num-card.s-SEM_RESPOSTA strong { color: var(--mute); }
+    .num-card.s-AVISADA strong { color: var(--info); }
+    .num-card.s-RESPONDIDA strong { color: var(--ok); }
 
     /* Formulário */
     label { display: block; font-weight: 600; font-size: .92rem; margin-top: 12px; }
@@ -75,6 +77,7 @@
       background: var(--bg); border: 1px solid var(--line); border-radius: 8px;
     }
     textarea { min-height: 84px; resize: vertical; }
+    textarea#opcoes { min-height: 96px; }
     .check { display: flex; align-items: center; gap: 8px; font-weight: 500; margin-top: 14px; }
     .check input { width: 20px; height: 20px; margin: 0; }
     button {
@@ -105,6 +108,13 @@
     .chip.s-NAO_CONCLUIDA { color: var(--warn); background: var(--warn-bg); }
     .chip.s-ERRO { color: var(--err); background: var(--err-bg); }
     .chip.s-SEM_RESPOSTA { color: var(--mute); background: var(--mute-bg); }
+    .chip.s-AVISADA { color: var(--info); background: var(--info-bg); }
+    .chip.s-RESPONDIDA { color: var(--ok); background: var(--ok-bg); }
+    .item .resposta { margin-top: 8px; padding: 8px 10px; border-radius: 8px; background: var(--bg);
+      border: 1px solid var(--line); overflow-wrap: anywhere; white-space: pre-wrap; }
+    .item .resposta a { color: var(--info); font-weight: 600; }
+    .tag { display: inline-block; padding: 1px 8px; border-radius: 6px; font-size: .78rem; font-weight: 600;
+      color: var(--muted); border: 1px solid var(--line); margin-right: 6px; }
 
     /* Aviso */
     #aviso { position: fixed; left: 16px; right: 16px; bottom: 16px; max-width: 520px; margin: 0 auto;
@@ -146,8 +156,22 @@
         <input id="tel" type="tel" inputmode="tel" placeholder="+5531999999999" required>
         <p class="muted">Sem o +, o dashboard assume Brasil (DDD + número).</p>
 
-        <label for="mensagem">O que a telefonista vai lembrar</label>
+        <label for="tipo">Formato</label>
+        <select id="tipo">
+          <option value="AVISO">Aviso (só fala, sem retorno)</option>
+          <option value="SIM_NAO" selected>Sim ou não (tecle 1 ou 2)</option>
+          <option value="OPCOES">Várias opções (você define as teclas)</option>
+          <option value="FALA">Resposta falada (áudio no Drive + texto)</option>
+        </select>
+
+        <label for="mensagem">O que a telefonista vai dizer</label>
         <textarea id="mensagem" maxlength="300" placeholder="Ex.: entregar as notas no DED" required></textarea>
+
+        <div id="blocoOpcoes" hidden>
+          <label for="opcoes">Opções (uma por linha)</label>
+          <textarea id="opcoes" maxlength="300" placeholder="1 = já fiz&#10;2 = ainda não fiz&#10;3 = adiar para amanhã"></textarea>
+          <p class="muted">A telefonista fala "Tecle 1 para já fiz…". Use de 2 a 9 opções.</p>
+        </div>
 
         <label class="check"><input id="agora" type="checkbox"> Ligar agora</label>
 
@@ -167,8 +191,10 @@
             <option value="">Todas</option>
             <option value="AGENDADA">Agendadas</option>
             <option value="LIGANDO">Ligando</option>
-            <option value="CONCLUIDA">Concluídas</option>
-            <option value="NAO_CONCLUIDA">Não concluídas</option>
+            <option value="CONCLUIDA">Sim / concluídas</option>
+            <option value="NAO_CONCLUIDA">Não / não concluídas</option>
+            <option value="AVISADA">Avisadas</option>
+            <option value="RESPONDIDA">Respondidas</option>
             <option value="SEM_RESPOSTA">Sem resposta</option>
             <option value="ERRO">Com erro</option>
           </select>
@@ -195,8 +221,12 @@
     var tentativasGoogle = 0;
 
     var ROTULOS = {
-      AGENDADA: 'Agendada', LIGANDO: 'Ligando', CONCLUIDA: 'Concluída',
-      NAO_CONCLUIDA: 'Não concluída', SEM_RESPOSTA: 'Sem resposta', ERRO: 'Erro'
+      AGENDADA: 'Agendada', LIGANDO: 'Ligando', CONCLUIDA: 'Sim / concluída',
+      NAO_CONCLUIDA: 'Não / não concluída', AVISADA: 'Avisada', RESPONDIDA: 'Respondida',
+      SEM_RESPOSTA: 'Sem resposta', ERRO: 'Erro'
+    };
+    var FORMATOS = {
+      AVISO: 'Aviso', SIM_NAO: 'Sim ou não', OPCOES: 'Opções', FALA: 'Resposta falada'
     };
 
     function $(id) { return document.getElementById(id); }
@@ -315,7 +345,8 @@
       lista.forEach(function (l) { c[l.status] = (c[l.status] || 0) + 1; });
       var r = $('resumo');
       r.textContent = '';
-      [['AGENDADA', 'Agendadas'], ['CONCLUIDA', 'Concluídas'], ['NAO_CONCLUIDA', 'Não concluídas'],
+      [['AGENDADA', 'Agendadas'], ['CONCLUIDA', 'Sim / concluídas'], ['NAO_CONCLUIDA', 'Não'],
+       ['AVISADA', 'Avisadas'], ['RESPONDIDA', 'Respondidas'],
        ['SEM_RESPOSTA', 'Sem resposta'], ['ERRO', 'Com erro']].forEach(function (x) {
         r.appendChild(el('div', 'num-card s-' + x[0], [el('strong', null, [String(c[x[0]] || 0)]), el('span', null, [x[1]])]));
       });
@@ -332,15 +363,34 @@
       }
       itens.forEach(function (l) {
         var meta = [l.telefone, 'tentativas: ' + l.tentativas];
-        if (l.resposta) meta.push('tecla ' + l.resposta + (l.respondidoEm ? ' às ' + fmt(l.respondidoEm) : ''));
+        if (l.respondidoEm) meta.push('respondida às ' + fmt(l.respondidoEm));
         var li = el('li', 'item', [
           el('div', 'linha1', [
-            el('span', 'chip s-' + l.status, [ROTULOS[l.status] || l.status]),
+            el('span', null, [
+              el('span', 'chip s-' + l.status, [ROTULOS[l.status] || l.status]), ' ',
+              el('span', 'tag', [FORMATOS[l.tipo] || FORMATOS.SIM_NAO])
+            ]),
             el('span', 'muted', [fmt(l.quando)])
           ]),
           el('p', 'msg', [l.mensagem]),
           el('p', 'meta', [meta.join(' · ')])
         ]);
+        if (l.resposta || l.audio) {
+          var caixa = el('div', 'resposta', []);
+          if (l.resposta) {
+            var curta = l.tipo !== 'FALA' && l.tipo !== 'OPCOES' && /^[12]$/.test(l.resposta);
+            caixa.appendChild(document.createTextNode(curta ? 'Tecla ' + l.resposta : l.resposta));
+          }
+          if (l.audio) {
+            var a = el('a', null, ['Ouvir o áudio no Drive']);
+            a.href = l.audio;
+            a.target = '_blank';
+            a.rel = 'noopener noreferrer';
+            if (l.resposta) caixa.appendChild(document.createElement('br'));
+            caixa.appendChild(a);
+          }
+          li.appendChild(caixa);
+        }
         if (l.obs) li.appendChild(el('p', 'obs', [l.obs]));
         if (l.status !== 'LIGANDO') {
           var b = el('button', 'sec pequeno', ['Ligar agora']);
@@ -375,6 +425,10 @@
 
     /* ---------- formulário ---------- */
 
+    function ajustarFormato() {
+      $('blocoOpcoes').hidden = $('tipo').value !== 'OPCOES';
+    }
+
     function ajustarAgora() {
       var q = $('quando');
       q.disabled = $('agora').checked;
@@ -382,6 +436,7 @@
     }
 
     $('agora').addEventListener('change', ajustarAgora);
+    $('tipo').addEventListener('change', ajustarFormato);
     $('filtro').addEventListener('change', desenharLista);
     $('btnAtualizar').addEventListener('click', function () { atualizar(); });
     $('btnSair').addEventListener('click', function () { sair(''); });
@@ -392,6 +447,8 @@
       var dados = {
         telefone: $('tel').value,
         mensagem: $('mensagem').value,
+        tipo: $('tipo').value,
+        opcoes: $('opcoes').value,
         agora: $('agora').checked,
         data: partes[0] || '',
         hora: partes[1] || ''
@@ -402,6 +459,7 @@
         .then(function (j) {
           aviso(j.mensagem, 'ok');
           $('mensagem').value = '';
+          $('opcoes').value = '';
           return atualizar(true);
         })
         .catch(tratarErro)
@@ -433,6 +491,7 @@
     function iniciar() {
       try { $('tel').value = localStorage.getItem('tel_ultimo') || ''; } catch (e) {}
       ajustarAgora();
+      ajustarFormato();
       if (!configurado()) {
         mostrarLogin('');
         $('configAviso').hidden = false;
