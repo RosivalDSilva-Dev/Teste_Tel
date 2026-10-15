@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex, nofollow">
   <meta name="color-scheme" content="light dark">
-  <title>Telefonista de IA</title>
+  <title>Alô, Professor</title>
   <style>
     :root { --bg: #f6f7f9; --card: #ffffff; --ink: #1b1f27; --muted: #5d6675; --line: #e2e5ea;
       --err: #b3261e; --warn: #8a5a00; --warn-bg: #fdf0d0; }
@@ -24,6 +24,7 @@
     p { margin: 0; }
     .muted { color: var(--muted); font-size: .9rem; }
     #botaoGoogle { display: flex; justify-content: center; margin: 22px 0 8px; min-height: 44px; }
+    .rodape { margin-top: 24px; color: var(--muted); font-size: .8rem; }
     #erro { color: var(--err); font-size: .92rem; min-height: 1.4em; margin-top: 8px; }
     #configAviso { text-align: left; background: var(--warn-bg); color: var(--warn);
       border-radius: 8px; padding: 12px; margin-top: 16px; font-size: .92rem; }
@@ -34,14 +35,15 @@
        (privado) e só é entregue depois de o servidor conferir o seu login. -->
   <main>
     <div class="card">
-      <h1>Telefonista de IA</h1>
-      <p id="sub" class="muted">Entre com a sua conta Google para ver e agendar as ligações.</p>
+      <h1>Alô, Professor</h1>
+      <p id="sub" class="muted">A telefonista que liga para lembrar você. Entre com a sua conta Google.</p>
       <div id="botaoGoogle"></div>
       <p id="erro" role="alert"></p>
       <div id="configAviso" hidden>
         <strong>Falta configurar.</strong> Edite o arquivo <code>config.js</code> e preencha
         <code>GOOGLE_CLIENT_ID</code> e <code>API_URL</code>.
       </div>
+      <p class="rodape">Alô, Professor · Rosival D. Silva · 2026</p>
     </div>
   </main>
 
@@ -102,7 +104,7 @@
           document.close();
         })
         .catch(function (e) {
-          $('sub').textContent = 'Entre com a sua conta Google para ver e agendar as ligações.';
+          $('sub').textContent = 'A telefonista que liga para lembrar você. Entre com a sua conta Google.';
           falha(e && e.message && e.message.indexOf('fetch') < 0 ? e.message :
             'Não consegui falar com o servidor. Confira a API_URL em config.js.');
         });
