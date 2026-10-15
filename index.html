@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="color-scheme" content="light dark">
+  <title>Telefonista de IA</title>
+  <style>
+    :root {
+      --bg: #f6f7f9; --card: #ffffff; --ink: #1b1f27; --muted: #5d6675; --line: #e2e5ea;
+      --brand: #1f3b63; --brand-ink: #ffffff;
+      --agendada: #5b4fc4; --agendada-bg: #ece9fb;
+      --info: #1a56b0;     --info-bg: #e0ebfb;
+      --ok: #137333;       --ok-bg: #e3f4e8;
+      --warn: #8a5a00;     --warn-bg: #fdf0d0;
+      --err: #b3261e;      --err-bg: #fbe4e2;
+      --mute: #4b5563;     --mute-bg: #e9ebef;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #12151b; --card: #1b2029; --ink: #e8ebf0; --muted: #9aa3b2; --line: #2b3240;
+        --brand: #8fb3ee; --brand-ink: #0f1a2c;
+        --agendada: #b8afff; --agendada-bg: #2a2650;
+        --info: #8fb3ee;     --info-bg: #1b2c47;
+        --ok: #7bd99a;       --ok-bg: #183222;
+        --warn: #f0c36a;     --warn-bg: #3a2f12;
+        --err: #ff9d96;      --err-bg: #3d1b19;
+        --mute: #c3cad6;     --mute-bg: #2a303b;
+      }
+    }
+    * { box-sizing: border-box; }
+    html { -webkit-text-size-adjust: 100%; }
+    body {
+      margin: 0; background: var(--bg); color: var(--ink);
+      font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+    }
+    [hidden] { display: none !important; }
+    .wrap { max-width: 760px; margin: 0 auto; padding: 16px; }
+    h1 { font-size: 1.35rem; margin: 0; }
+    h2 { font-size: 1.05rem; margin: 0 0 12px; }
+    p { margin: 0; }
+    .muted { color: var(--muted); font-size: .9rem; }
+    .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin-top: 16px; }
+
+    /* Login */
+    #login { min-height: 100vh; display: grid; place-items: center; padding: 16px; }
+    #login .card { max-width: 380px; width: 100%; text-align: center; padding: 28px 20px; }
+    #login h1 { margin-bottom: 6px; }
+    #botaoGoogle { display: flex; justify-content: center; margin: 22px 0 8px; min-height: 44px; }
+    .erro-texto { color: var(--err); font-size: .92rem; min-height: 1.4em; margin-top: 8px; }
+    .config-aviso { text-align: left; background: var(--warn-bg); color: var(--warn); border-radius: 8px; padding: 12px; margin-top: 16px; font-size: .92rem; }
+    code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: .88em; }
+
+    /* Topo */
+    header.topo { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+    header.topo .quem { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+    /* Resumo */
+    .resumo { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 10px; margin-top: 16px; }
+    .num-card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; }
+    .num-card strong { font-size: 1.6rem; line-height: 1.1; }
+    .num-card span { font-size: .85rem; color: var(--muted); }
+    .num-card.s-AGENDADA strong { color: var(--agendada); }
+    .num-card.s-CONCLUIDA strong { color: var(--ok); }
+    .num-card.s-NAO_CONCLUIDA strong { color: var(--warn); }
+    .num-card.s-ERRO strong { color: var(--err); }
+    .num-card.s-SEM_RESPOSTA strong { color: var(--mute); }
+
+    /* Formulário */
+    label { display: block; font-weight: 600; font-size: .92rem; margin-top: 12px; }
+    label:first-of-type { margin-top: 0; }
+    input[type=tel], input[type=datetime-local], textarea, select {
+      width: 100%; margin-top: 4px; padding: 10px; font: inherit; color: var(--ink);
+      background: var(--bg); border: 1px solid var(--line); border-radius: 8px;
+    }
+    textarea { min-height: 84px; resize: vertical; }
+    .check { display: flex; align-items: center; gap: 8px; font-weight: 500; margin-top: 14px; }
+    .check input { width: 20px; height: 20px; margin: 0; }
+    button {
+      font: inherit; min-height: 44px; padding: 0 16px; border-radius: 8px; cursor: pointer;
+      border: 1px solid var(--brand); background: var(--brand); color: var(--brand-ink); font-weight: 600;
+    }
+    button.sec { background: transparent; color: var(--brand); }
+    button.pequeno { min-height: 36px; padding: 0 12px; font-size: .9rem; }
+    button:disabled { opacity: .55; cursor: default; }
+    button.cheio { width: 100%; margin-top: 16px; }
+    :focus-visible { outline: 3px solid var(--info); outline-offset: 2px; }
+
+    /* Lista */
+    .lista-topo { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+    .lista-topo select { width: auto; margin: 0; }
+    ul.lista { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+    .item { border: 1px solid var(--line); border-radius: 10px; padding: 12px; }
+    .item .linha1 { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+    .item .msg { margin-top: 8px; font-weight: 600; overflow-wrap: anywhere; }
+    .item .meta { margin-top: 4px; color: var(--muted); font-size: .88rem; }
+    .item .obs { margin-top: 6px; font-size: .88rem; color: var(--muted); overflow-wrap: anywhere; }
+    .item .acoes { margin-top: 10px; }
+    .vazio { text-align: center; color: var(--muted); padding: 20px 0; }
+    .chip { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: .8rem; font-weight: 700; }
+    .chip.s-AGENDADA { color: var(--agendada); background: var(--agendada-bg); }
+    .chip.s-LIGANDO { color: var(--info); background: var(--info-bg); }
+    .chip.s-CONCLUIDA { color: var(--ok); background: var(--ok-bg); }
+    .chip.s-NAO_CONCLUIDA { color: var(--warn); background: var(--warn-bg); }
+    .chip.s-ERRO { color: var(--err); background: var(--err-bg); }
+    .chip.s-SEM_RESPOSTA { color: var(--mute); background: var(--mute-bg); }
+
+    /* Aviso */
+    #aviso { position: fixed; left: 16px; right: 16px; bottom: 16px; max-width: 520px; margin: 0 auto;
+      padding: 12px 14px; border-radius: 10px; font-weight: 600; display: none; z-index: 10; border: 1px solid var(--line); }
+    #aviso.ok { display: block; color: var(--ok); background: var(--ok-bg); }
+    #aviso.erro { display: block; color: var(--err); background: var(--err-bg); }
+  </style>
+</head>
+<body>
+
+  <main id="login" hidden>
+    <div class="card">
+      <h1>Telefonista de IA</h1>
+      <p class="muted">Entre com a sua conta Google para ver e agendar as ligações.</p>
+      <div id="botaoGoogle"></div>
+      <p id="erroLogin" class="erro-texto" role="alert"></p>
+      <div id="configAviso" class="config-aviso" hidden>
+        <strong>Falta configurar.</strong> Edite o arquivo <code>docs/config.js</code> e preencha
+        <code>GOOGLE_CLIENT_ID</code> e <code>API_URL</code>. O passo a passo está no
+        <code>apps-script/LEIA-ME.md</code>.
+      </div>
+    </div>
+  </main>
+
+  <div id="app" class="wrap" hidden>
+    <header class="topo">
+      <h1>Telefonista de IA</h1>
+      <div class="quem">
+        <span id="usuario" class="muted"></span>
+        <button id="btnSair" class="sec pequeno" type="button">Sair</button>
+      </div>
+    </header>
+
+    <section id="resumo" class="resumo" aria-label="Resumo das ligações"></section>
+
+    <section class="card">
+      <h2>Nova ligação</h2>
+      <form id="form" autocomplete="off">
+        <label for="tel">Telefone</label>
+        <input id="tel" type="tel" inputmode="tel" placeholder="+5531999999999" required>
+        <p class="muted">Sem o +, o dashboard assume Brasil (DDD + número).</p>
+
+        <label for="mensagem">O que a telefonista vai lembrar</label>
+        <textarea id="mensagem" maxlength="300" placeholder="Ex.: entregar as notas no DED" required></textarea>
+
+        <label class="check"><input id="agora" type="checkbox"> Ligar agora</label>
+
+        <label for="quando">Ou agende para</label>
+        <input id="quando" type="datetime-local" required>
+
+        <button id="enviar" class="cheio" type="submit">Agendar ligação</button>
+      </form>
+    </section>
+
+    <section class="card">
+      <div class="lista-topo">
+        <h2 style="margin:0">Ligações</h2>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <label for="filtro" class="muted" style="margin:0;font-weight:500">Mostrar</label>
+          <select id="filtro" aria-label="Filtrar por status">
+            <option value="">Todas</option>
+            <option value="AGENDADA">Agendadas</option>
+            <option value="LIGANDO">Ligando</option>
+            <option value="CONCLUIDA">Concluídas</option>
+            <option value="NAO_CONCLUIDA">Não concluídas</option>
+            <option value="SEM_RESPOSTA">Sem resposta</option>
+            <option value="ERRO">Com erro</option>
+          </select>
+          <button id="btnAtualizar" class="sec pequeno" type="button">Atualizar</button>
+        </div>
+      </div>
+      <p id="estado" class="muted" aria-live="polite"></p>
+      <ul id="lista" class="lista" style="margin-top:10px"></ul>
+    </section>
+  </div>
+
+  <div id="aviso" role="status" aria-live="polite"></div>
+
+  <script src="config.js"></script>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <script>
+  (function () {
+    'use strict';
+
+    var CFG = window.TELEFONISTA || {};
+    var token = '';
+    var timer = null;
+    var ultimaLista = [];
+    var tentativasGoogle = 0;
+
+    var ROTULOS = {
+      AGENDADA: 'Agendada', LIGANDO: 'Ligando', CONCLUIDA: 'Concluída',
+      NAO_CONCLUIDA: 'Não concluída', SEM_RESPOSTA: 'Sem resposta', ERRO: 'Erro'
+    };
+
+    function $(id) { return document.getElementById(id); }
+
+    function el(tag, cls, filhos) {
+      var n = document.createElement(tag);
+      if (cls) n.className = cls;
+      (filhos || []).forEach(function (f) {
+        n.appendChild(typeof f === 'string' ? document.createTextNode(f) : f);
+      });
+      return n;
+    }
+
+    function configurado() {
+      return !!(CFG.GOOGLE_CLIENT_ID && CFG.API_URL &&
+        CFG.GOOGLE_CLIENT_ID.indexOf('COLE_') !== 0 && CFG.API_URL.indexOf('COLE_') !== 0);
+    }
+
+    /* ---------- sessão (o token do Google vale ~1 hora) ---------- */
+
+    function lerJwt(t) {
+      try {
+        var b = t.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+        var json = decodeURIComponent(atob(b).split('').map(function (c) {
+          return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+        }).join(''));
+        return JSON.parse(json);
+      } catch (e) { return null; }
+    }
+
+    function tokenValido(t) {
+      var p = t ? lerJwt(t) : null;
+      return p && p.exp * 1000 > Date.now() + 60000 ? p : null;
+    }
+
+    function guardar(t) {
+      try { if (t) sessionStorage.setItem('tel_token', t); else sessionStorage.removeItem('tel_token'); } catch (e) {}
+    }
+    function recuperar() {
+      try { return sessionStorage.getItem('tel_token') || ''; } catch (e) { return ''; }
+    }
+
+    function mostrarLogin(msg) {
+      $('app').hidden = true;
+      $('login').hidden = false;
+      $('erroLogin').textContent = msg || '';
+    }
+
+    function entrar(t) {
+      var p = tokenValido(t);
+      if (!p) { mostrarLogin('Sessão expirada. Entre de novo.'); return; }
+      token = t;
+      guardar(t);
+      $('usuario').textContent = p.email || '';
+      $('login').hidden = true;
+      $('app').hidden = false;
+      atualizar();
+      clearInterval(timer);
+      timer = setInterval(function () { if (!document.hidden) atualizar(true); }, 30000);
+    }
+
+    function sair(msg) {
+      token = '';
+      guardar('');
+      clearInterval(timer);
+      try { if (window.google && google.accounts) google.accounts.id.disableAutoSelect(); } catch (e) {}
+      mostrarLogin(msg || '');
+    }
+
+    /* ---------- chamadas à API (Apps Script) ---------- */
+
+    function api(acao, extra) {
+      var corpo = Object.assign({ acao: acao, idToken: token }, extra || {});
+      // Texto puro (sem cabeçalho JSON) evita a checagem prévia de CORS do navegador.
+      return fetch(CFG.API_URL, { method: 'POST', body: JSON.stringify(corpo), redirect: 'follow' })
+        .then(function (r) { return r.json(); })
+        .then(function (j) {
+          if (!j.ok) throw new Error(j.erro || 'Erro desconhecido.');
+          return j;
+        }, function () {
+          throw new Error('Não consegui falar com o servidor. Confira a API_URL em config.js e se a implantação está como "Qualquer pessoa".');
+        });
+    }
+
+    function tratarErro(e) {
+      var m = String(e && e.message || e);
+      if (/Sessão|Entre com o Google|não tem acesso|outro aplicativo|Emissor|E-mail não verificado/i.test(m)) {
+        sair(m);
+      } else {
+        aviso(m, 'erro');
+        $('estado').textContent = '';
+      }
+    }
+
+    /* ---------- tela ---------- */
+
+    function fmt(iso) {
+      if (!iso) return '';
+      return new Date(iso).toLocaleString('pt-BR', {
+        timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit',
+        hour: '2-digit', minute: '2-digit'
+      });
+    }
+
+    var avisoTimer = null;
+    function aviso(texto, tipo) {
+      var a = $('aviso');
+      a.textContent = texto;
+      a.className = tipo;
+      clearTimeout(avisoTimer);
+      avisoTimer = setTimeout(function () { a.className = ''; }, 6000);
+    }
+
+    function desenharResumo(lista) {
+      var c = {};
+      lista.forEach(function (l) { c[l.status] = (c[l.status] || 0) + 1; });
+      var r = $('resumo');
+      r.textContent = '';
+      [['AGENDADA', 'Agendadas'], ['CONCLUIDA', 'Concluídas'], ['NAO_CONCLUIDA', 'Não concluídas'],
+       ['SEM_RESPOSTA', 'Sem resposta'], ['ERRO', 'Com erro']].forEach(function (x) {
+        r.appendChild(el('div', 'num-card s-' + x[0], [el('strong', null, [String(c[x[0]] || 0)]), el('span', null, [x[1]])]));
+      });
+    }
+
+    function desenharLista() {
+      var filtro = $('filtro').value;
+      var ul = $('lista');
+      ul.textContent = '';
+      var itens = ultimaLista.filter(function (l) { return !filtro || l.status === filtro; });
+      if (!itens.length) {
+        ul.appendChild(el('li', 'vazio', ['Nenhuma ligação por aqui.']));
+        return;
+      }
+      itens.forEach(function (l) {
+        var meta = [l.telefone, 'tentativas: ' + l.tentativas];
+        if (l.resposta) meta.push('tecla ' + l.resposta + (l.respondidoEm ? ' às ' + fmt(l.respondidoEm) : ''));
+        var li = el('li', 'item', [
+          el('div', 'linha1', [
+            el('span', 'chip s-' + l.status, [ROTULOS[l.status] || l.status]),
+            el('span', 'muted', [fmt(l.quando)])
+          ]),
+          el('p', 'msg', [l.mensagem]),
+          el('p', 'meta', [meta.join(' · ')])
+        ]);
+        if (l.obs) li.appendChild(el('p', 'obs', [l.obs]));
+        if (l.status !== 'LIGANDO') {
+          var b = el('button', 'sec pequeno', ['Ligar agora']);
+          b.type = 'button';
+          b.addEventListener('click', function () { ligarAgora(l, b); });
+          li.appendChild(el('div', 'acoes', [b]));
+        }
+        ul.appendChild(li);
+      });
+    }
+
+    function atualizar(silencioso) {
+      if (!silencioso) $('estado').textContent = 'Atualizando…';
+      $('btnAtualizar').disabled = true;
+      return api('listar').then(function (j) {
+        ultimaLista = j.ligacoes || [];
+        desenharResumo(ultimaLista);
+        desenharLista();
+        $('estado').textContent = 'Atualizado às ' +
+          new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+      }).catch(tratarErro).then(function () { $('btnAtualizar').disabled = false; });
+    }
+
+    function ligarAgora(l, botao) {
+      if (!window.confirm('Ligar agora para ' + l.telefone + '?')) return;
+      botao.disabled = true;
+      api('ligar', { id: l.id })
+        .then(function (j) { aviso(j.mensagem, 'ok'); return atualizar(true); })
+        .catch(tratarErro)
+        .then(function () { botao.disabled = false; });
+    }
+
+    /* ---------- formulário ---------- */
+
+    function ajustarAgora() {
+      var q = $('quando');
+      q.disabled = $('agora').checked;
+      q.required = !$('agora').checked;
+    }
+
+    $('agora').addEventListener('change', ajustarAgora);
+    $('filtro').addEventListener('change', desenharLista);
+    $('btnAtualizar').addEventListener('click', function () { atualizar(); });
+    $('btnSair').addEventListener('click', function () { sair(''); });
+
+    $('form').addEventListener('submit', function (ev) {
+      ev.preventDefault();
+      var partes = ($('quando').value || '').split('T');
+      var dados = {
+        telefone: $('tel').value,
+        mensagem: $('mensagem').value,
+        agora: $('agora').checked,
+        data: partes[0] || '',
+        hora: partes[1] || ''
+      };
+      try { localStorage.setItem('tel_ultimo', dados.telefone); } catch (e) {}
+      $('enviar').disabled = true;
+      api('criar', { dados: dados })
+        .then(function (j) {
+          aviso(j.mensagem, 'ok');
+          $('mensagem').value = '';
+          return atualizar(true);
+        })
+        .catch(tratarErro)
+        .then(function () { $('enviar').disabled = false; });
+    });
+
+    /* ---------- início ---------- */
+
+    function prepararGoogle() {
+      if (window.google && google.accounts && google.accounts.id) {
+        google.accounts.id.initialize({
+          client_id: CFG.GOOGLE_CLIENT_ID,
+          callback: function (r) { entrar(r.credential); },
+          auto_select: false
+        });
+        google.accounts.id.renderButton($('botaoGoogle'), {
+          theme: 'outline', size: 'large', text: 'signin_with', shape: 'pill', locale: 'pt-BR', width: 280
+        });
+        return;
+      }
+      tentativasGoogle++;
+      if (tentativasGoogle > 50) {
+        $('erroLogin').textContent = 'Não consegui carregar o login do Google. Algum bloqueador de conteúdo pode estar impedindo.';
+        return;
+      }
+      setTimeout(prepararGoogle, 200);
+    }
+
+    function iniciar() {
+      try { $('tel').value = localStorage.getItem('tel_ultimo') || ''; } catch (e) {}
+      ajustarAgora();
+      if (!configurado()) {
+        mostrarLogin('');
+        $('configAviso').hidden = false;
+        $('botaoGoogle').hidden = true;
+        return;
+      }
+      var guardado = recuperar();
+      if (tokenValido(guardado)) entrar(guardado); else mostrarLogin('');
+      prepararGoogle();
+    }
+
+    iniciar();
+  })();
+  </script>
+</body>
+</html>
